@@ -30,6 +30,7 @@
         {
             bLoad = new Button();
             bSave = new Button();
+            pbJob = new ProgressBar();
             SuspendLayout();
             // 
             // bLoad
@@ -53,11 +54,19 @@
             bSave.UseVisualStyleBackColor = true;
             bSave.Click += bSave_Click;
             // 
+            // pbJob
+            // 
+            pbJob.Location = new Point(12, 180);
+            pbJob.Name = "pbJob";
+            pbJob.Size = new Size(284, 34);
+            pbJob.TabIndex = 2;
+            // 
             // ConvertAST
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(308, 166);
+            ClientSize = new Size(308, 226);
+            Controls.Add(pbJob);
             Controls.Add(bSave);
             Controls.Add(bLoad);
             Name = "ConvertAST";
@@ -69,5 +78,6 @@
 
         private Button bLoad;
         private Button bSave;
+        public ProgressBar pbJob;
     }
 }
