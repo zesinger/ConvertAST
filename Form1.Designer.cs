@@ -31,6 +31,7 @@
             bLoad = new Button();
             bSave = new Button();
             pbJob = new ProgressBar();
+            tbLog = new TextBox();
             SuspendLayout();
             // 
             // bLoad
@@ -46,7 +47,7 @@
             // bSave
             // 
             bSave.Enabled = false;
-            bSave.Location = new Point(12, 96);
+            bSave.Location = new Point(12, 139);
             bSave.Name = "bSave";
             bSave.Size = new Size(284, 58);
             bSave.TabIndex = 1;
@@ -56,22 +57,34 @@
             // 
             // pbJob
             // 
-            pbJob.Location = new Point(12, 180);
+            pbJob.Location = new Point(12, 272);
             pbJob.Name = "pbJob";
             pbJob.Size = new Size(284, 34);
             pbJob.TabIndex = 2;
+            // 
+            // tbLog
+            // 
+            tbLog.Location = new Point(319, 12);
+            tbLog.Multiline = true;
+            tbLog.Name = "tbLog";
+            tbLog.ReadOnly = true;
+            tbLog.ScrollBars = ScrollBars.Vertical;
+            tbLog.Size = new Size(763, 510);
+            tbLog.TabIndex = 3;
             // 
             // ConvertAST
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(308, 226);
+            ClientSize = new Size(1094, 534);
+            Controls.Add(tbLog);
             Controls.Add(pbJob);
             Controls.Add(bSave);
             Controls.Add(bLoad);
             Name = "ConvertAST";
             Text = "Conversion de fichiers AST";
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -79,5 +92,6 @@
         private Button bLoad;
         private Button bSave;
         public ProgressBar pbJob;
+        public TextBox tbLog;
     }
 }

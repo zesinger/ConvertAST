@@ -1,4 +1,6 @@
-﻿namespace ConvertAST
+﻿using static System.Runtime.InteropServices.JavaScript.JSType;
+
+namespace ConvertAST
 {
     public partial class ConvertAST : Form
     {
@@ -175,46 +177,156 @@
             return numBytes;
         }
 
-        Dictionary<int, int> itemLength = new Dictionary<int, int>
+        Dictionary<int, (int, int)> itemLength = new Dictionary<int, (int, int)>
         {
-            [0] = 2,   // I062/010
-            [1] = 0,   // spare
-            [2] = 1,   // I062/015
-            [3] = 3,   // I062/070
-            [4] = 8,   // I062/105
-            [5] = 6,   // I062/100
-            [6] = 4,   // I062/185
-            [7] = 2,  // I062/210
-            [8] = 2,  // I062/060
-            [9] = 7,  // I062/245
-            [10] = -1,  // I062/380
-            [12] = 2,  // I062/040
-            [13] = -1,  // I062/080
-            [14] = -1,  // I062/290
-            [15] = 1,  // I062/200
-            [16] = -1,  // I062/295
-            [17] = 2,  // I062/136
-            [18] = 2,  // I062/130
-            [19] = 2,  // I062/135
-            [20] = 2,  // I062/220
-            [21] = -1,  // I062/390
-            [22] = -1,  // I062/270
-            [23] = 1,  // I062/300
-            [24] = -1,  // I062/110
-            [25] = 2,  // I062/120
-            [26] = -1,  // I062/510
-            [27] = -1,  // I062/500
-            [28] = -1,  // I062/340
+            [0] = (2,10),   // I062/010
+            [1] = (0,0),   // spare
+            [2] = (1,15),   // I062/015
+            [3] = (3,70),   // I062/070
+            [4] = (8,105),   // I062/105
+            [5] = (6,100),   // I062/100
+            [6] = (4,185),   // I062/185
+            [7] = (2,210),  // I062/210
+            [8] = (2,60),  // I062/060
+            [9] = (7,245),  // I062/245
+            [10] = (-1,380),  // I062/380
+            [11] = (2,40),  // I062/040
+            [12] = (-1,80),  // I062/080
+            [13] = (-1,290),  // I062/290
+            [14] = (1,200),  // I062/200
+            [15] = (-1,295),  // I062/295
+            [16] = (2,136),  // I062/136
+            [17] = (2,130),  // I062/130
+            [18] = (2,135),  // I062/135
+            [19] = (2,220),  // I062/220
+            [20] = (-1,390),  // I062/390
+            [21] = (-1,270),  // I062/270
+            [22] = (1,300),  // I062/300
+            [23] = (-1,110),  // I062/110
+            [24] = (2,120),  // I062/120
+            [25] = (-1,510),  // I062/510
+            [26] = (-1,500),  // I062/500
+            [27] = (-1,340),  // I062/340
         };
 
-        int ParseVariableLengthField(byte[] data, int offset, int fspecBit)
+        void ToDms(double val, out int dd, out int mm, out int ss)
+        {
+            double absV = Math.Abs(val);
+            dd = (int)Math.Floor(absV);
+            mm = (int)Math.Floor((absV - dd) * 60.0);
+            ss = (int)Math.Round(((absV - dd) * 60.0 - mm) * 60.0);
+            if (ss == 60) { ss = 0; mm++; }
+            if (mm == 60) { mm = 0; dd++; }
+            if (val < 0) dd = -dd;
+        }
+
+        string DescribeItemData((int Len, int Id) item, byte[] content)
+        {
+            switch (item.Id)
+            {
+                case 40: // I062/040
+                    if (content.Length == 2)
+                    {
+                        int val = (content[0] << 8) | content[1];
+                        return $" Numéro de piste : {val}\r\n";
+                    }
+                    break;
+                case 70: // I062/070
+                 if (content.Length == 3)
+                    {
+                        int T = (content[0] << 16) | (content[1] << 8) | content[2];      // 24 bits
+                        int totalSeconds = (T + 64) / 128;        // +64 pour arrondir (≈ +0,5s)
+
+                        // on borne à 0..86399 au cas où
+                        totalSeconds %= 24 * 3600;
+
+                        int h = totalSeconds / 3600;
+                        int m = (totalSeconds % 3600) / 60;
+                        int s = totalSeconds % 60;
+
+                        string hhmmss = $"{h:00}:{m:00}:{s:00}";  // en UTC                        return $"      Time of day : {val} ms\r\n";
+                        return $" Heure : {hhmmss} UTC\r\n";
+                    }
+                    break;
+                case 105: // I062/105
+                    if (content.Length == 8)
+                    {
+                        int rawLat = (content[0] << 24) | (content[1] << 16) | (content[2] << 8) | content[3];
+                        int rawLon = (content[4] << 24) | (content[5] << 16) | (content[6] << 8) | content[7];
+
+                        const double LSB = 180.0 / (1 << 25);
+
+                        double latitude = rawLat * LSB;
+                        double longitude = rawLon * LSB;
+                        ToDms(latitude, out int latDeg, out int latMin, out int latSec);
+                        string latStr = $"{(latDeg < 0 ? "-" : "+")}{Math.Abs(latDeg):00}°{latMin:00}'{latSec:00}\"";
+
+                        ToDms(longitude, out int lonDeg, out int lonMin, out int lonSec);
+                        string lonStr = $"{(lonDeg < 0 ? "-" : "+")}{Math.Abs(lonDeg):000}°{lonMin:00}'{lonSec:00}\"";
+
+                        return $" Position : Lat {latStr}, Lon {lonStr}\r\n";
+                    }
+                    break;
+                case 135: // I062/135
+                    if (content.Length == 2)
+                    {
+                        short raw = (short)((content[0] << 8) | content[1]);
+
+                        bool qnhApplied = (raw & 0x8000) != 0;
+                        short value = (short)(raw & 0x7FFF); // altitude en quart de FL
+
+                        double altitudeFeet = value * 25.0;
+                        double flightLevel = altitudeFeet / 100.0;
+                        return $" Altitude : {flightLevel} ft\r\n";
+                    }
+                    break;
+                case 136: // I062/136
+                    if (content.Length == 2)
+                    {
+                        short raw = (short)((content[0] << 8) | content[1]);
+
+                        double altitudeFeet = raw * 25.0;
+                        double flightLevel = altitudeFeet / 100.0;
+                        if (flightLevel < 0)
+                            return $" Altitude par défaut, à ignorer.\r\n";
+                        else return $" Altitude : {flightLevel} ft\r\n";
+                    }
+                    break;
+                case 245: // I062/245
+                    if (content.Length == 7)
+                    {
+                        char[] ia5Table = new char[]
+                        {   ' ', 'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O',
+                            'P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9'
+                        };
+                        byte[] bytes = content.Skip(1).Take(6).ToArray();
+                        // concaténer les 6 octets en un ulong
+                        ulong value = 0;
+                        for (int i = 0; i < 6; i++)
+                            value = (value << 8) | bytes[i];
+
+                        char[] result = new char[8];
+                        for (int i = 7; i >= 0; i--)
+                        {
+                            int code = (int)(value & 0x3F); // 6 bits
+                            value >>= 6;
+                            result[i] = (code < ia5Table.Length) ? ia5Table[code] : ' ';
+                        }
+                        return $" Callsign ou immatriculation : '{new string(result).Trim()}'\r\n";
+                    }
+                    break;
+                default: return "\r\n";
+            }
+            return "\r\n";
+        }
+        (int itemLen, int itemId) ParseVariableLengthField(byte[] data, int offset, int fspecBit)
         {
             return fspecBit switch
             {
-                10 => Parse380(data, offset),
-                13 => Parse080(data, offset),
-                14 => Parse290(data, offset),
-                16 => Parse295(data, offset),
+                10 => (Parse380(data, offset), 380),
+                12 => (Parse080(data, offset), 080),
+                13 => (Parse290(data, offset), 290),
+                15 => (Parse295(data, offset), 295),
                 _ => throw new NotSupportedException($"Unsupported variable-length field for FSPEC bit {fspecBit}")
             };
         }
@@ -240,7 +352,8 @@
                     using var reader = new BinaryReader(inputStream);
 
                     pbJob.Maximum = (int)reader.BaseStream.Length;
-
+                    tbLog.Text = string.Empty;
+                    bool Success = true;
                     while (reader.BaseStream.Position + 3 <= reader.BaseStream.Length)
                     {
                         long recordStart = reader.BaseStream.Position;
@@ -255,11 +368,20 @@
                         byte lenLo = reader.ReadByte();
                         ushort length = (ushort)((lenHi << 8) | lenLo);
 
-                        reader.BaseStream.Position = recordStart;
-                        if (recordStart>500000)
+                        tbLog.AppendText($"\r\nBloc à l'offset {recordStart} du fichier, CAT{category:D3}, longueur {length:D6}");
+                        if (category==062) tbLog.AppendText(" :\r\n");
+                        else tbLog.AppendText("\r\n");
+
+                        if (length < 3 || reader.BaseStream.Position - 3 + length > reader.BaseStream.Length)
                         {
-                            int sdgsqd = 12;
+                            // Invalid length, stop processing
+                            tbLog.AppendText("\r\nLongueur invalide, arrêt du process.");
+                            Success = false;
+                            break;
                         }
+
+                        reader.BaseStream.Position = recordStart;
+
                         byte[] record = reader.ReadBytes(length);
 
                         if (category != 062)
@@ -325,9 +447,8 @@
                         int? offset135 = null;
                         int? offset136 = null;
 
-                        bool seen136 = false;
-                        bool seen135 = false;
-
+                        string log = "";
+                        byte[] content;
                         for (int i = 0; i < fspecBits.Count && cursor < record.Length; i++)
                         {
                             if (!fspecBits[i])
@@ -336,41 +457,64 @@
                             if (i == bit135)
                             {
                                 offset135 = cursor;
+                                log += $"   Item I062/135 trouvé à l'offset {cursor:D6}.";
+                                content=record.AsSpan(cursor,2).ToArray();
+                                log += DescribeItemData((2,135), content); 
                                 cursor += 2;
-                                seen135 = true;
                             }
                             else if (i == bit136)
                             {
                                 offset136 = cursor;
+                                log+=$"   Item I062/136 trouvé à l'offset {cursor:D6}.";
+                                content = record.AsSpan(cursor, 2).ToArray();
+                                log += DescribeItemData((2,136), content);
                                 cursor += 2;
-                                seen136 = true;
                             }
                             else if (i <= bit135 || i <= bit136)
                             {
-                                itemLength.TryGetValue(i, out int itemLen);
-                                if (itemLen >= 0)
+                                (int itemLen, int itemId) valres;
+                                itemLength.TryGetValue(i, out valres);
+                                if (valres.itemLen >= 0)
                                 {
-                                    cursor += itemLen;
+                                    log += $"   Item I062/{valres.itemId:D3} trouvé à l'offset {cursor:D6}.";
+                                    content = record.AsSpan(cursor, valres.itemLen).ToArray();
+                                    log += DescribeItemData(valres, content);
+                                    cursor += valres.itemLen;
                                 }
                                 else
                                 {
                                     // Variable-length field
-                                    cursor += ParseVariableLengthField(record, cursor, i);
+                                    (int itemLen, int itemId) itemres= ParseVariableLengthField(record, cursor, i);
+                                    log+=$"   Item I062/{itemres.itemId:D3} trouvé à l'offset {cursor:D6}.";
+                                    content = record.AsSpan(cursor, Math.Min(itemres.itemLen, record.Length-cursor)).ToArray();
+                                    log += DescribeItemData(valres, content);
+                                    cursor += itemres.itemLen;
                                 }
                             }
                             else
                             {
                                 // We’ve passed 135 and 136, just copy the rest
+                                log+="   Position des items I062/135 et I062/136 dépassé, on copie juste le contenu restant.\r\n";
                                 break;
                             }
                         }
                         // Perform the replacement if both fields are found
                         if (offset135.HasValue && offset136.HasValue)
                         {
-                            record[offset135.Value] = record[offset136.Value];
-                            record[offset135.Value + 1] = record[offset136.Value + 1];
+                            if (record[offset136.Value] == 255 && record[offset136.Value + 1] == 255)
+                            {
+                                record[offset136.Value] = (byte)(record[offset135.Value] & 0x7f);
+                                record[offset136.Value + 1] = record[offset135.Value + 1];
+                                log += "   On a trouvé les 2 items I062/135 et I062/136, mais la valeur du I062/136 est invalide, on remplace donc la valeur de l'item 136 par celle de l'item 135.\r\n";
+                            }
+                            else
+                            {
+                                record[offset135.Value] = (byte)(record[offset136.Value] & 0x7f);
+                                record[offset135.Value + 1] = record[offset136.Value + 1];
+                                log += "   On a trouvé les 2 items I062/135 et I062/136, on remplace donc la valeur de l'item 135 par celle de l'item 136.\r\n";
+                            }
                         }
-
+                        tbLog.AppendText(log);
                         outputStream.Write(record, 0, record.Length);
                     }
                     _outputData = outputStream.ToArray();
@@ -379,7 +523,8 @@
                         fs.Write(_outputData, 0, _outputData.Length);
                     }
                     bSave.Enabled = false;
-                    MessageBox.Show("File saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    if (Success) MessageBox.Show("Fichier sauvegardé.", "Succés", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    else MessageBox.Show("Le fichier a été sauvegardé, mais un bloc avec une longueur erronnée a été trouvée pendant le traitement, le résultat est donc incomplet.", "Attention", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             //catch
